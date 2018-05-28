@@ -1,0 +1,244 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "Template to provision a standalone IIS instance and Setup a sample app",
+    "Mappings": {
+        "params": {
+            "Environment": {
+                "nonprod": "nonprod",
+                "preprod": "preprod"
+            },
+            "ImageId": {
+                "nonprod": "ami-2a9a1655",
+                "preprod": "ami-2a9a1655"
+            },
+            "SecurityGroupIds": {
+                "nonprod": [
+                  "sg-c8e656b7"
+                ],
+                "preprod": [
+                  "sg-c8e656b7"
+                ]
+            },
+            "SubnetId": {
+                "nonprod":
+                    "subnet-5c98dd39",
+                "preprod":
+                    "subnet-f8181bd5"
+            }
+        }
+    },
+    "Parameters": {
+      "KeyName": {
+        "Default" : "demoApp",
+        "Description" : "My App Key Pair",
+        "Type" : "AWS::EC2::KeyPair::KeyName",
+        "ConstraintDescription" : "Must be the name of existing key pair"
+      },
+        "AppName": {
+            "Description": "What app will this resource be for?",
+            "Type": "String",
+            "Default": "Sample"
+        },
+        "EnvironmentName": {
+            "Description": "What is the environment name of this specifc environment type?",
+            "Type": "String",
+            "Default": "tester"
+        },
+        "EnvironmentType": {
+            "Description": "What environment type is it (nonprod, preprod, prod)?",
+            "Type": "String",
+            "Default": "nonprod",
+            "AllowedValues": [
+                "nonprod",
+                "preprod"
+            ]
+        },
+        "InstanceProfile": {
+          "Default": "Myaccount_custompolicy",
+          "Description": "IAM Role",
+          "Type": "String"
+        },
+        "InstanceType": {
+            "Default": "t2.micro",
+            "Description": "WebServer EC2 instance type",
+            "Type": "String",
+            "AllowedValues": [
+                "t2.micro",
+                "m3.large",
+                "m3.xlarge",
+                "m3.2xlarge",
+                "m4.large",
+                "m4.xlarge",
+                "m4.2xlarge",
+                "m4.4xlarge",
+                "r3.large",
+                "r3.xlarge",
+                "r3.2xlarge",
+                "r3.4xlarge"
+            ]
+        },
+        "OwnerContact": {
+            "Description": "Who is the contact or team who created the resource (Name, email, or SNS).",
+            "Type": "String",
+            "Default": "Himaja"
+        }
+    },
+    "Resources": {
+        "Instance": {
+            "Type": "AWS::EC2::Instance",
+            "Properties": {
+                "BlockDeviceMappings": [
+                    {
+                      "DeviceName": "/dev/sda1",
+                      "Ebs": {
+                        "VolumeSize": "50"
+                      }
+                    }
+                ],
+                "ImageId": {
+                    "Fn::FindInMap": [
+                        "params",
+                        "ImageId",
+                        {
+                            "Ref": "EnvironmentType"
+                        }
+                    ]
+                },
+                "KeyName": {"Ref": "KeyName"},
+
+                "InstanceType": {
+                    "Ref": "InstanceType"
+                },
+                "IamInstanceProfile" : {
+                  "Ref" : "InstanceProfile"
+                },
+                "SecurityGroupIds": {
+                    "Fn::FindInMap": [
+                        "params",
+                        "SecurityGroupIds",
+                        {
+                            "Ref": "EnvironmentType"
+                        }
+                    ]
+                },
+                "SubnetId": {
+                    "Fn::FindInMap": [
+                        "params",
+                        "SubnetId",
+                        {
+                            "Ref": "EnvironmentType"
+                        }
+                    ]
+                },
+                "Tags": [
+                    {
+                        "Key": "Name",
+                        "Value": {
+                            "Fn::Join": [
+                                "-",
+                                [
+                                    {
+                                        "Ref": "AppName"
+                                    },
+                                    {
+                                        "Ref": "EnvironmentName"
+                                    },
+                                    "app"
+                                ]
+                            ]
+                        }
+                    },
+                    {
+                        "Key": "Environment",
+                        "Value": {
+                            "Fn::FindInMap": [
+                                "params",
+                                "Environment",
+                                {
+                                    "Ref": "EnvironmentType"
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        "Key": "OwnerContact",
+                        "Value": {
+                            "Ref": "OwnerContact"
+                        }
+                    }
+                ],
+                "UserData": {
+                    "Fn::Base64": {
+                        "Fn::Join": [
+                            "\n",
+                            [
+                                "<powershell>",
+                                    "###############################################################################################################\n",
+                                    "### ADD USERS TO LOCAL ADMIN GROUP\n",
+                                    "###############################################################################################################\n",
+
+                                    "$usersToAdd = \"$localHost\\Himaja\"\n",
+                                    "$localHost = $env:computername\n",
+                                    "if($usersToAdd -match \",\")\n",
+                                    "{\n",
+                                    "  $accts = $usersToAdd.split(\",\")\n",
+                                    "}\n",
+                                    "else\n",
+                                    "{\n",
+                                    "  $accts= @($usersToAdd)\n",
+                                    "}\n",
+                                    "$objGroup = [ADSI](\"WinNT://$localHost/Administrators\")\n",
+                                    "$members = $objGroup.psbase.invoke(\"Members\") | foreach{([ADSI]$_).InvokeGet(\"Name\")}\n",
+                                    "foreach($acct in $accts)\n",
+                                    "{\n",
+                                    "  $domAcct = $acct.replace(\"\\\",\"\/\")\n",
+                                    "  $objUser = [ADSI](\"WinNT://$domAcct\")\n",
+                                    "  $objGroup.PSBase.Invoke(\"Add\",$objUser.PSBase.Path)\n",
+                                    "}\n",
+
+                                    "$hostname = $env:computername",
+                                    "cd C:\\",
+                                    "mkdir C:\\temp",
+                                    "Read-S3Object -BucketName mydemoappbucket -Key /index.html -File c:\\temp\\index.html",
+                                    "$reg = \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings\"",
+                                    "#$RegPath = \"HKCU:\\Software\\Microsoft\\Windows\\CurrentVersion\\Ext\\Settings\\{2B925455-8D0C-401F-AA4C-9336C2167F14}\"",
+                                    "#Set-ItemProperty -Path $RegPath -Name Flags -Value 400",
+                                    "$User = \"$hostname\\lanAdmin\"",
+                                    "cd C:\\temp",
+
+                                    "###############################################################################################################",
+                                    "### INSTALL WINDOWS FEATURES",
+                                    "###############################################################################################################",
+
+                                    "##########################",
+                                    "### VARIABLES ###",
+                                    "##########################",
+
+                                    "$features = @(\"Web-Server\",\"Web-WebServer\",\"Web-Common-Http\",\"Web-Static-Content\",\"Web-Default-Doc\",\"Web-Dir-Browsing\",\"Web-Http-Errors\",\"Web-Http-Redirect\",\"Web-App-Dev\",\"Web-Asp-Net\",\"Web-Net-Ext\",\"Web-ASP\",\"Web-CGI\",\"Web-ISAPI-Ext\",\"Web-ISAPI-Filter\",\"Web-Includes\",\"Web-Health\",\"Web-Http-Logging\",\"Web-Log-Libraries\",\"Web-Request-Monitor\",\"Web-Http-Tracing\",\"Web-Custom-Logging\",\"Web-Security\",\"Web-Basic-Auth\",\"Web-Windows-Auth\",\"Web-Cert-Auth\",\"Web-Url-Auth\",\"Web-Filtering\",\"Web-Performance\",\"Web-Stat-Compression\",\"Web-Mgmt-Tools\",\"Web-Mgmt-Console\",\"Web-Mgmt-Service\",\"Web-Mgmt-Compat\",\"Web-Metabase\",\"NET-Framework\",\"NET-Framework-Core\",\"RSAT\",\"RSAT-Role-Tools\",\"RSAT-AD-Tools\",\"RSAT-AD-PowerShell\",\"RSAT-Web-Server\",\"PowerShell-ISE\",\"Web-WMI\",\"Web-Lgcy-Scripting\",\"Web-Lgcy-Mgmt-Console\")",
+
+                                    "##########################",
+                                    "### EXECUTE",
+                                    "##########################",
+                                    "Import-Module Servermanage\n",
+                                    "foreach ($feature in $features)\n",
+                                    "{\n",
+                                       "Install-WindowsFeature $feature\n",
+                                       "echo `r`n\n",
+                                    "}\n",
+
+                                    "##########################",
+                                    "### Website",
+                                    "##########################",
+                                    "Import-Module WebAdministration",
+                                    "New-Website -Name \"Website1\" -Port 8090 -IPAddress \"*\" -HostHeader \"\" -PhysicalPath \"C:\\temp\"",
+                								    "Restart-Computer",
+
+                                "</powershell>"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
