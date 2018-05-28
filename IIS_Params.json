@@ -1,0 +1,31 @@
+
+[
+  {
+    "ParameterKey":"AppName",
+    "ParameterValue": "Demo App"
+  },
+  {
+    "ParameterKey":"EnvironmentName",
+    "ParameterValue": "demo"
+  },
+  {
+    "ParameterKey":"EnvironmentType",
+    "ParameterValue": "demo"
+  },
+  {
+    "ParameterKey":"InstanceProfile",
+    "ParameterValue": "Myaccount_custompolicy"
+  },
+  {
+    "ParameterKey":"InstanceType",
+    "ParameterValue": "t2.micro"
+  },
+  {
+    "ParameterKey":"KeyName",
+    "ParameterValue": "demoApp"
+  },
+  {
+    "ParameterKey":"OwnerContact",
+    "ParameterValue": "Himaja"
+  }
+]
