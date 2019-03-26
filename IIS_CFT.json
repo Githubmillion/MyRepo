@@ -29,7 +29,7 @@
     },
     "Parameters": {
       "KeyName": {
-        "Default" : "demoApp",
+        "Default" : "Mykeypairtest",      
         "Description" : "My App Key Pair",
         "Type" : "AWS::EC2::KeyPair::KeyName",
         "ConstraintDescription" : "Must be the name of existing key pair"
