@@ -9,7 +9,7 @@
             },
             "ImageId": {
                 "nonprod": "ami-02d43577e47e684d9",
-                "preprod": "02d43577e47e684d9"         
+                "preprod": "ami-02d43577e47e684d9"         
             },
             "SecurityGroupIds": {
                 "nonprod": [
